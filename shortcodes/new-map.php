@@ -11,7 +11,8 @@ add_shortcode('new-map', function ($atts) {
             // eg. inwestycja
             'taxonomy' => '',
             // eg. budynek
-            'views' => '1',
+            'children' => 0,
+            // 0 or 1
         ),
         $atts
     );
@@ -19,7 +20,9 @@ add_shortcode('new-map', function ($atts) {
     $elements = sanitize_text_field($a['elements']);
     $post_type = sanitize_text_field($a['post_type']);
     $taxonomy = sanitize_text_field($a['taxonomy']);
-    $views = sanitize_text_field($a['views']);
+    $children = intval($a['children']);
+
+
 
     if ($post_type == 'inwestycja') {
 
@@ -96,7 +99,9 @@ add_shortcode('new-map', function ($atts) {
 
                     // Dodanie danych do tablicy
                     $elementsData[] = array(
-                        'koordynaty' => $koordynaty,
+                        'koordynaty' => [
+                            '1' => $koordynaty,
+                        ],
                         'url' => $url_widoku_taxonomii,
                         'kolor' => $status == 'Dostępny' ? 'green' : 'red',
                         'params' => array(
@@ -110,94 +115,104 @@ add_shortcode('new-map', function ($atts) {
             }
 
         }
-
-        $background_image = rwmb_get_value('rzut_inwestycji') ?? '';
+        $rzut_inwestycji = rwmb_meta('rzut_inwestycji');
+        $backgrounds = $rzut_inwestycji ? array($rzut_inwestycji) : [];
     }
 
     if ($taxonomy == 'budynek') {
         if ($elements == 'apartments') {
-            // 1. Pobranie wszystkich postów typu "mieszkanie"
-            $args = array(
-                'post_type' => 'mieszkanie',
-                'posts_per_page' => -1,
-                'tax_query' => array(
-                    array(
-                        'taxonomy' => 'budynek',
-                        // Zamień to na taksonomię, której używasz
-                        'field' => 'term_id',
-                        // Może być 'term_id', 'name', 'slug' lub 'term_taxonomy_id'
-                        'terms' => get_queried_object_id(),
-                        // Pobiera ID aktualnego obiektu zapytania, co powinno działać, jeśli jesteś na stronie terminu taksonomii
+            if ($children == 0) {
+                // 1. Pobranie wszystkich postów typu "mieszkanie"
+                $args = array(
+                    'post_type' => 'mieszkanie',
+                    'posts_per_page' => -1,
+                    'tax_query' => array(
+                        array(
+                            'taxonomy' => 'budynek',
+                            // Zamień to na taksonomię, której używasz
+                            'field' => 'term_id',
+                            // Może być 'term_id', 'name', 'slug' lub 'term_taxonomy_id'
+                            'terms' => get_queried_object_id(),
+                            // Pobiera ID aktualnego obiektu zapytania, co powinno działać, jeśli jesteś na stronie terminu taksonomii
+                        ),
                     ),
-                ),
-            );
+                );
 
-            $mieszkania = new WP_Query($args);
-            // Get current taxonomy permalink
-            $url_budynku = get_term_link(get_queried_object_id());
-            $mieszkaniaData = array();
+                $mieszkania = new WP_Query($args);
+                // Get current taxonomy permalink
+                $url_budynku = get_term_link(get_queried_object_id());
+                $mieszkaniaData = array();
 
-            if ($mieszkania->have_posts()) {
-                while ($mieszkania->have_posts()) {
-                    $mieszkania->the_post();
+                if ($mieszkania->have_posts()) {
+                    while ($mieszkania->have_posts()) {
+                        $mieszkania->the_post();
 
-                    $status = rwmb_get_value('status');
-                    if ($status != "Sprzedane") {
-                        // Pobranie metadanych
-                        $coordinates = rwmb_get_value('coordinates');
-                        $koordynaty_na_budynku_przod = rwmb_get_value('koordynaty_na_budynku_przod');
-                        $koordynaty_na_budynku_tyl = rwmb_get_value('koordynaty_na_budynku_tyl');
-                        $nazwa = get_the_title();
+                        $status = rwmb_get_value('status');
+                        if ($status != "Sprzedane") {
+                            // Pobranie metadanych
+                            $coordinates = rwmb_get_value('coordinates');
+                            $koordynaty_na_budynku_przod = rwmb_get_value('koordynaty_na_budynku_przod');
+                            $koordynaty_na_budynku_tyl = rwmb_get_value('koordynaty_na_budynku_tyl');
+                            $nazwa = get_the_title();
 
-                        $metraz = rwmb_get_value('metraz');
-                        $url_mieszkania = get_the_permalink();
-                        $pokoje = rwmb_get_value('liczba_pokoi');
+                            $metraz = rwmb_get_value('metraz');
+                            $url_mieszkania = get_the_permalink();
+                            $pokoje = rwmb_get_value('liczba_pokoi');
 
-                        // Po kliknięciu w mieszkanie na rzucie budynku przenoś na widok piętra
-                        $numer_pietra = rwmb_get_value('pietro');
-                        $url;
-                        if ($numer_pietra) {
-                            $url = $url_budynku . '?pietro=' . $numer_pietra;
-                        } else {
-                            $url = $url_mieszkania;
+                            // Po kliknięciu w mieszkanie na rzucie budynku przenoś na widok piętra
+                            $numer_pietra = rwmb_get_value('pietro');
+                            $url;
+                            if ($numer_pietra) {
+                                $url = $url_budynku . '?pietro=' . $numer_pietra;
+                            } else {
+                                $url = $url_mieszkania;
+                            }
+
+
+                            $elementsData[] = array(
+                                'id' => get_the_ID(),
+                                'koordynaty' => [
+                                    '1' => $koordynaty_na_budynku_tyl,
+                                    '2' => $koordynaty_na_budynku_przod
+                                ],
+                                'url' => $url,
+                                'kolor' => $status == "Wolne" ? 'green' : 'yellow',
+                                'params' => array(
+                                    'Nazwa: ' => $nazwa,
+                                    'Status: ' => $status,
+                                    'Metraż: ' => $metraz,
+                                    'Liczba pokoi: ' => $pokoje
+                                ),
+                            );
                         }
 
-
-                        $elementsData[] = array(
-                            'id' => get_the_ID(),
-                            'koordynaty' => [
-                                $koordynaty_na_budynku_przod,
-                                $koordynaty_na_budynku_tyl
-                            ],
-                            'url' => $url,
-                            'kolor' => $status == "Wolne" ? 'green' : 'yellow',
-                            'params' => array(
-                                'Nazwa: ' => $nazwa,
-                                'Status: ' => $status,
-                                'Metraż: ' => $metraz,
-                                'Liczba pokoi: ' => $pokoje
-                            ),
-                        );
                     }
-
                 }
+                wp_reset_query();
+                $backgrounds = rwmb_meta('widoki', ['object_type' => 'term', 'size' => 'thumbnail'], get_queried_object_id());
+            } else if ($children == 1) {
+                $floor_number = isset($_GET['pietro']) ? intval($_GET['pietro']) : null;
+                var_dump($floor_number);
+                $floor_data = get_taxonomy_children_by_floor($floor_number);
+                $elementsData = $floor_data ? get_flats_on_floor($floor_number, $floor_data['parent'], $floor_data['taxonomy']) : [];
+            
+                $rzut_pietra = rwmb_meta('rzut_pietra', ['object_type' => 'term'], $floor_data['id']);
+                $backgrounds = $rzut_pietra ? array($rzut_pietra) : [];
             }
-            wp_reset_query();
-            $backgrounds = array(
-                '1' => rwmb_meta('tyl', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? '',
-                '2' => rwmb_meta('przod', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? ''
-            );
         }
         if ($elements == 'floors') {
 
         }
     }
+    $views = is_array($backgrounds) ? count($backgrounds) : 1;
+
     ?>
     <script src="https://unpkg.com/konva@9.2.0/konva.min.js"></script>
     <script type="text/javascript">
+        // is taxonomy or post type
+        var type = <?php echo json_encode($taxonomy ? 'taxonomy' : 'post_type') ?>;
         var elementsData = <?php echo json_encode($elementsData, JSON_PRETTY_PRINT); ?>;
         var currentId = <?php echo json_encode(get_the_ID()) ?>;
-        var backgroundImage = <?php echo json_encode($background_image) ?>;
         var backgrounds = <?php echo json_encode($backgrounds) ?>;
         var views = <?php echo json_encode($views) ?>;
     </script>
@@ -207,24 +222,26 @@ add_shortcode('new-map', function ($atts) {
             height: auto !important;
         }
     </style>
-    <?php
-    // foreach $views echo '123'
-    for ($i = 0; $i < $views; $i++) {
-        ?>
-        <div class="inter-map" id="interactive-map-<?= $i + 1 ?>"></div>
+    <div class="polygon-map">
         <?php
-    }
-    if ($views > 0) {
-        ?>
-        <div class="switch-button-wrapper">
-            <button class="rotate-building-button" id="switchButton">
-                < Obróć budynek>
-            </button>
-        </div>
-        <?php
-    }
+        // foreach $views echo '123'
+        for ($i = 0; $i < $views; $i++) {
+            ?>
+            <div class="inter-map" id="interactive-map-<?= $i + 1 ?>"></div>
+            <?php
+        }
+        if ($views > 0) {
+            ?>
+            <div class="switch-button-wrapper">
+                <button class="rotate-building-button" id="switchButton">
+                    < Obróć budynek>
+                </button>
+            </div>
+            <?php
+        }
 
-    ?>
+        ?>
+    </div>
     <div id="tooltip"
         style="pointer-events: none; position: absolute; display: none; background: white; border: 1px solid black; padding: 5px;">
     </div>
@@ -237,6 +254,16 @@ add_shortcode('new-map', function ($atts) {
         const stages = {}; // create an object to hold the stages
         const layers = {}; // create an object to hold the layers
         const images = {}; // create an object to hold the images
+
+        var polygonPrototype = new Konva.Line({
+            opacity: 0.3,
+            stroke: 'black',
+            strokeWidth: 2,
+            closed: true // Opcja ta zamyka kształt, tworząc wielobok
+        });
+
+        polygonPrototype.cache();
+
         for (let index = 0; index < views; index++) {
             let view_id = index + 1;
             if (view_id > 1) {
@@ -254,7 +281,6 @@ add_shortcode('new-map', function ($atts) {
             images[view_id] = new Image();
 
             images[view_id].onload = function () {
-                // console.log(`Image ${view_id} loaded successfully`); // log success
                 const imageWidth = parseInt(this.naturalWidth) || 0;
                 const imageHeight = parseInt(this.naturalHeight) || 0;
 
@@ -270,10 +296,12 @@ add_shortcode('new-map', function ($atts) {
 
                 layers[view_id].add(konvaImageMain);
 
-                if (currentId == 2650) {
+                if (currentId == 2650 && type == 'post_type') {
                     elementsData.push(
                         {
-                            "koordynaty": "[876,559,856,731,872,731,870,748,1016,773,1019,755,1033,757,1072,583,1093,420,1097,401,1118,296,1005,282,952,377,951,387]",
+                            "koordynaty": {
+                                "1": "[876,559,856,731,872,731,870,748,1016,773,1019,755,1033,757,1072,583,1093,420,1097,401,1118,296,1005,282,952,377,951,387]"
+                            },
                             "url": "",
                             "kolor": "red",
                             "params": {
@@ -282,7 +310,9 @@ add_shortcode('new-map', function ($atts) {
                             }
                         },
                         {
-                            "koordynaty": "[867,262,854,391,768,510,737,720,725,722,724,732,605,718,605,707,594,707,589,589,628,493,633,482,624,481,664,384,682,368,682,334,721,334,738,319,739,285,783,253]",
+                            "koordynaty": {
+                                "1": "[867,262,854,391,768,510,737,720,725,722,724,732,605,718,605,707,594,707,589,589,628,493,633,482,624,481,664,384,682,368,682,334,721,334,738,319,739,285,783,253]",
+                            },
                             "url": "https://rafin-developer.pro-pages.com/inwestycja/wybrzeze-reymonta-ii/",
                             "kolor": "green",
                             "params": {
@@ -292,7 +322,9 @@ add_shortcode('new-map', function ($atts) {
 
                         },
                         {
-                            "koordynaty": "[1,542,71,485,67,464,229,339,386,273,384,244,393,241,392,231,460,207,515,213,517,237,526,240,529,308,460,346,402,346,403,398,371,431,331,476,147,712,1,704]",
+                            "koordynaty": {
+                                "1": "[1,542,71,485,67,464,229,339,386,273,384,244,393,241,392,231,460,207,515,213,517,237,526,240,529,308,460,346,402,346,403,398,371,431,331,476,147,712,1,704]"
+                            },
                             "url": "",
                             "kolor": "black",
                             "params": {
@@ -317,18 +349,14 @@ add_shortcode('new-map', function ($atts) {
                             pointsMain[i + 1] = pointsMain[i + 1] / imageHeight * (sceneHeight * (imageHeight / imageWidth));
                         }
 
-                        var polygonMain = new Konva.Line({
+
+
+                        polygonMain = polygonPrototype.clone({
                             points: pointsMain,
                             fill: element.kolor,
-                            opacity: 0.3,
-                            stroke: 'black',
-                            strokeWidth: 1,
-                            closed: true
                         });
 
-
-
-
+                        polygonMain.cache();
 
 
                         // Dodaj tooltip do zdarzenia 'mouseover'
@@ -336,8 +364,7 @@ add_shortcode('new-map', function ($atts) {
                             document.body.style.cursor = 'pointer';
                             this.fill(element.kolor);
                             this.opacity(0.5)
-                            layers[view_id].draw();
-
+                            layers[view_id].batchDraw();
                             // Append to tooltip element.params
                             if (element.params) {
                                 // Usuń wszystkie dzieci tooltip
@@ -359,12 +386,11 @@ add_shortcode('new-map', function ($atts) {
                             document.body.style.cursor = 'default';
                             this.fill(element.kolor);
                             this.opacity(0.3)
-                            layers[view_id].draw();
+                            layers[view_id].batchDraw();
 
                             // Ukryj tooltip
                             tooltip.style.display = 'none';
                         });
-                        console.log(123);
                         // Aktualizuj pozycję tooltip na zdarzenie 'mousemove'
                         stages[view_id].on('mousemove', function (event) {
                             var mousePos = stages[view_id].getPointerPosition();
@@ -375,7 +401,6 @@ add_shortcode('new-map', function ($atts) {
                         polygonMain.on('click', function () {
                             window.location.href = element.url;
                         });
-
                         layers[view_id].add(polygonMain);
                     }
                 });
@@ -403,12 +428,31 @@ add_shortcode('new-map', function ($atts) {
                 fitStageIntoParentContainer();
                 window.addEventListener('resize', fitStageIntoParentContainer);
             }
-            const imageMainUrl = backgrounds[view_id]['full_url'];
-            console.log(imageMainUrl);
+            const imageMainUrl = backgrounds[view_id - 1]['full_url'];
             images[view_id].src = imageMainUrl;
         }
 
+        // przyciski do zmiany widoku
+        if (views > 1) {
+            var switchButton = document.getElementById('switchButton');
+            switchButton.addEventListener('click', function () {
+                var currentContainer = document.querySelector(containersSelector + ':not([style*="display: none"])');
+                var currentContainerId = currentContainer.id;
+                var currentContainerIdNumber = currentContainerId.replace(containerIdBegining, '');
+                var nextContainerIdNumber = parseInt(currentContainerIdNumber) + 1;
+                var nextContainerId = containerIdBegining + nextContainerIdNumber;
+                var nextContainer = document.getElementById(nextContainerId);
 
+                if (nextContainer) {
+                    currentContainer.style.display = 'none';
+                    nextContainer.style.display = 'block';
+                } else {
+                    currentContainer.style.display = 'none';
+                    document.getElementById(containerIdBegining + '1').style.display = 'block';
+                }
+            });
+
+        }
 
     </script>
     <?php

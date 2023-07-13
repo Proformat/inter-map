@@ -100,12 +100,16 @@ function get_flats_on_floor($floor_number, $floor_id, $floor_taxonomy)
                 }
                 $mieszkaniaData[] = array(
                     'id' => get_the_ID(),
-                    'nazwa' => $nazwa,
-                    'koordynaty' => $koordynaty_na_pietrze,
-                    'status' => $status,
-                    'metraz' => $metraz,
+                    'koordynaty' => array(
+                        '1' => $koordynaty_na_pietrze
+                    ),
                     'url' => $url,
-                    'kolor' => $kolor
+                    'kolor' => $kolor,
+                    'params' => array(
+                        'Nazwa: ' => $nazwa,
+                        'Status: ' => $status,
+                        'Metraż: ' => $metraz,
+                    ),
                 );
 
             }
