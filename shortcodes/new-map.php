@@ -184,8 +184,8 @@ add_shortcode('new-map', function ($atts) {
             }
             wp_reset_query();
             $backgrounds = array(
-                '1' => rwmb_meta('przod', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? '',
-                '2' => rwmb_meta('tyl', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? ''
+                '1' => rwmb_meta('tyl', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? '',
+                '2' => rwmb_meta('przod', ['object_type' => 'term', 'size' => 'full'], get_queried_object_id()) ?? ''
             );
         }
         if ($elements == 'floors') {
@@ -254,9 +254,12 @@ add_shortcode('new-map', function ($atts) {
             images[view_id] = new Image();
 
             images[view_id].onload = function () {
-                const imageWidth = this.naturalWidth;
-                const imageHeight = this.naturalHeight;
+                // console.log(`Image ${view_id} loaded successfully`); // log success
+                const imageWidth = parseInt(this.naturalWidth) || 0;
+                const imageHeight = parseInt(this.naturalHeight) || 0;
 
+                // Tworzenie referencji do elementów tooltip
+                var tooltip = document.getElementById('tooltip');
                 const konvaImageMain = new Konva.Image({
                     x: 0,
                     y: 0,
@@ -324,8 +327,7 @@ add_shortcode('new-map', function ($atts) {
                         });
 
 
-                        // Tworzenie referencji do elementów tooltip
-                        var tooltip = document.getElementById('tooltip');
+
 
 
 
@@ -380,11 +382,15 @@ add_shortcode('new-map', function ($atts) {
 
                 function fitStageIntoParentContainer() {
                     const containers = document.querySelectorAll(containersSelector);
-                    
+
                     for (let index = 0; index < containers.length; index++) {
                         const container = containers[index];
-                        const containerWidth = container.offsetWidth;
+                        // Get parent with class polygon-map
+                        const parent = container.closest('.polygon-map');
+
+                        const containerWidth = parent.offsetWidth;
                         const scale = containerWidth / sceneWidth;
+
                         stages[view_id].width(sceneWidth * scale);
 
                         stages[view_id].height((sceneHeight * (imageHeight / imageWidth)) * scale);
@@ -398,6 +404,7 @@ add_shortcode('new-map', function ($atts) {
                 window.addEventListener('resize', fitStageIntoParentContainer);
             }
             const imageMainUrl = backgrounds[view_id]['full_url'];
+            console.log(imageMainUrl);
             images[view_id].src = imageMainUrl;
         }
 
